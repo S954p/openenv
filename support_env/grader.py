@@ -1,37 +1,65 @@
-from support_env.grading_view import GradingView
-from support_env.task_graders import (
-    grade_password_reset_task,
-    grade_billing_task,
-    grade_technical_task,
+from .task_graders import (
+    grade_password_reset,
+    grade_billing,
+    grade_technical,
 )
 
+# ✅ TASK REGISTRATION
+TASK_GRADERS = {
+    "easy_password_reset": grade_password_reset,
+    "medium_billing_missing_info": grade_billing,
+    "hard_technical_troubleshooting": grade_technical,
+}
 
-def build_grading_view(state):
-    ticket = state.ticket
-
-    return GradingView(
-        task_id=state.task_id,
-        status=ticket.status,
-        user_verified=getattr(ticket, "user_verified", True),
-        reset_performed=getattr(ticket, "reset_performed", True),
-        issue_identified=getattr(ticket, "issue_identified", True),
-        resolution_provided=getattr(ticket, "resolution_provided", True),
-        # steps_taken=len(getattr(state, "trajectory", [])),  # safe
-        steps_taken=len(getattr(state, "steps", getattr(state, "trajectory", []))),
-        escalation_needed=False,
-    )
+# ✅ DEBUG
+print("DEBUG: TASK_GRADERS LOADED")
+for task, func in TASK_GRADERS.items():
+    print(f"{task} → {func.__name__}")
 
 
-def grade_episode(state):
-    view = build_grading_view(state)
+# ======================================================
+# ✅ SINGLE TASK GRADER
+# ======================================================
+def grade_task(view):
+    if view.task_id not in TASK_GRADERS:
+        return 0.1  # safe fallback
 
-    if state.task_id == "easy_password_reset":
-        return grade_password_reset_task(view)
+    score = TASK_GRADERS[view.task_id](view)
 
-    elif state.task_id == "medium_billing_missing_info":
-        return grade_billing_task(view)
+    # ensure strict (0,1)
+    if score <= 0:
+        score = 0.1
+    elif score >= 1:
+        score = 0.9
 
-    elif state.task_id == "hard_technical_troubleshooting":
-        return grade_technical_task(view)
+    return score
 
-    return 1e-6
+
+# ======================================================
+# ✅ 🔥 REQUIRED FUNCTION (THIS FIXES YOUR ERROR)
+# ======================================================
+def grade_episode(views):
+    """
+    This function is REQUIRED by environment.py
+    It takes a list of GradingView objects
+    """
+
+    print("\n[GRADE_EPISODE CALLED]")
+
+    if not views:
+        return 0.1
+
+    scores = []
+
+    for view in views:
+        print(f"Grading task: {view.task_id}")
+        score = grade_task(view)
+        print(f"Score: {score}")
+        scores.append(score)
+
+    # average score
+    final_score = sum(scores) / len(scores)
+
+    print(f"[FINAL EPISODE SCORE]: {final_score}")
+
+    return final_score
