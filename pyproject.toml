@@ -1,0 +1,21 @@
+[project]
+name = "openenv"
+version = "0.1.0"
+description = "Customer AI Command Center OpenEnv Environment"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "openai",
+    "openenv-core>=0.2.0",
+    "PyYAML",
+    "typing-extensions"
+]
+
+[project.scripts]
+server = "server.__main__:main"
+
+[tool.openenv]
+entrypoint = "server.app:app"

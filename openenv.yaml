@@ -1,0 +1,30 @@
+spec_version: 1
+name: meta_hackaoth_support_ticket_v1
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+
+tasks:
+  - id: easy_password_reset
+    task_id: easy_password_reset
+    grader: support_env.task_graders.grade_password_reset_task
+
+  - id: medium_billing_missing_info
+    task_id: medium_billing_missing_info
+    grader: support_env.task_graders.grade_billing_task
+
+  - id: hard_technical_troubleshooting
+    task_id: hard_technical_troubleshooting
+    grader: support_env.task_graders.grade_technical_task
+
+graders:
+  easy_password_reset: support_env.task_graders.grade_password_reset_task
+  medium_billing_missing_info: support_env.task_graders.grade_billing_task
+  hard_technical_troubleshooting: support_env.task_graders.grade_technical_task
+
+environment:
+  id: meta_hackaoth_support_ticket_v1
+  entry_point:
+    module: support_env.environment
+    class: SupportTicketEnvironment
