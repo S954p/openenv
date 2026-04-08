@@ -11,6 +11,25 @@ from pydantic import BaseModel, Field
 
 from support_env.environment import SupportTicketEnvironment
 from support_env.tasks import TASKS
+from fastapi import FastAPI
+from support_env.environment import SupportTicketEnvironment
+
+app = FastAPI()
+
+
+@app.get("/")
+def home():
+    return {"message": "App running 🚀"}
+
+
+@app.get("/run")
+def run():
+    env = SupportTicketEnvironment()
+    score = env.run_episode()
+
+    return {
+        "final_score": score
+    }
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(
