@@ -1,22 +1,40 @@
 from __future__ import annotations
 
+import logging
 from threading import Lock
 from typing import Any, Dict, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from support_env.environment import SupportTicketEnvironment
 from support_env.tasks import TASKS
 
+# -------------------- Logging Setup --------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
 # -------------------- FastAPI App --------------------
 app = FastAPI(title="Meta-Hackathon Support Ticket Environment")
+
+# -------------------- CORS (for frontend apps like Streamlit) --------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # change to specific domain in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # -------------------- Global Storage --------------------
 _envs: Dict[str, SupportTicketEnvironment] = {}
 _lock = Lock()
-
 
 # -------------------- Models --------------------
 class ResetRequest(BaseModel):
@@ -44,8 +62,8 @@ class StateRequest(BaseModel):
 @app.get("/")
 def root():
     return {
-        "message": "Customer AI Command Center API is running",
-        "endpoints": ["/health", "/reset", "/step", "/state"],
+        "message": "Customer AI Command Center API is running 🚀",
+        "endpoints": ["/health", "/tasks", "/reset", "/step", "/state"],
     }
 
 
@@ -83,6 +101,8 @@ def tasks():
 
 # -------------------- Core Logic --------------------
 def _reset_episode(req: ResetRequest):
+    logger.info(f"Reset request received: {req}")
+
     env = SupportTicketEnvironment()
 
     try:
@@ -92,12 +112,15 @@ def _reset_episode(req: ResetRequest):
             scenario=req.scenario,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid task_id: {e}")
+        logger.error(f"Reset failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
     state = env.state()
 
     with _lock:
         _envs[state.episode_id] = env
+
+    logger.info(f"New episode created: {state.episode_id}")
 
     return {
         "episode_id": state.episode_id,
@@ -124,13 +147,20 @@ def openenv_reset(req: Optional[ResetRequest] = None):
 
 @app.post("/step")
 def step(req: StepRequest):
+    logger.info(f"Step called for episode: {req.episode_id}")
+
     with _lock:
         env = _envs.get(req.episode_id)
 
     if env is None:
+        logger.warning(f"Episode not found: {req.episode_id}")
         raise HTTPException(status_code=404, detail="Unknown episode_id")
 
-    obs, reward, done, info = env.step(req.action)
+    try:
+        obs, reward, done, info = env.step(req.action)
+    except Exception as e:
+        logger.error(f"Step error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {
         "episode_id": req.episode_id,
@@ -165,7 +195,8 @@ def state_get(episode_id: str):
 
 # -------------------- Entry Point --------------------
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    logger.info("Starting FastAPI server on port 7860...")
+    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
 
 
 if __name__ == "__main__":
