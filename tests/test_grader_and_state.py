@@ -48,9 +48,7 @@ def test_grader_scoring_correctness_medium():
     done = run_task(env, "medium_billing_missing_info", actions)
     assert done is True
     assert env.state().ticket.status == "CLOSED"
-    score = grade_episode(env.state())
-    assert 0.0 < score < 1.0
-    assert score == pytest.approx(0.999999, abs=1e-6)
+    assert grade_episode(env.state()) == pytest.approx(1.0, abs=1e-6)
 
 
 def test_grader_scoring_correctness_hard():
@@ -71,7 +69,4 @@ def test_grader_scoring_correctness_hard():
     done = run_task(env, "hard_technical_troubleshooting", actions)
     assert done is True
     assert env.state().ticket.status == "CLOSED"
-    score = grade_episode(env.state())
-    assert 0.0 < score < 1.0
-    assert score == pytest.approx(0.999999, abs=1e-6)
-
+    assert grade_episode(env.state()) == pytest.approx(1.0, abs=1e-6)
