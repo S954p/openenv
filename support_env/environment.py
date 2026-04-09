@@ -80,6 +80,12 @@ class SupportTicketEnvironment:
     # ======================================================
     def reset(self, task_id=None, seed=None, scenario=None, **kwargs):
         self.used_seed = seed  # ✅ store seed for app.py
+        def get_guidance(self):
+        return {
+            "instructions": "Resolve customer support tickets based on task type.",
+            "tasks_available": list(self.TASK_VIEWS.keys()),
+            "note": "Each task should be handled and scored between 0 and 1."
+        }
 
         if task_id and task_id in self.TASK_VIEWS:
             self.views = [GradingView(**self.TASK_VIEWS[task_id])]
