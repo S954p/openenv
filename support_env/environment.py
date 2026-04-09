@@ -3,74 +3,110 @@ from .grader import grade_episode
 
 
 class SupportTicketEnvironment:
-    """
-    Environment for validator
-    Must implement reset() and step() in some frameworks
-    """
 
     def __init__(self):
         self.views = []
 
     # ======================================================
-    # ✅ REQUIRED: RESET FUNCTION
+    # ✅ FIXED RESET FUNCTION (accepts task_id)
     # ======================================================
-    def reset(self):
+    def reset(self, task_id=None, **kwargs):
         """
-        Initializes the environment and returns initial state
+        Validator may pass task_id → must accept it
         """
 
-        self.views = [
-            GradingView(
-                task_id="easy_password_reset",
-                status="CLOSED",
-                reset_performed=True,
-                user_verified=True,
-                issue_identified=False,
-                resolution_provided=False,
-                attempts=1,
-                escalation=False,
-            ),
-            GradingView(
-                task_id="medium_billing_missing_info",
-                status="OPEN",
-                reset_performed=False,
-                user_verified=True,
-                issue_identified=True,
-                resolution_provided=False,
-                attempts=2,
-                escalation=False,
-            ),
-            GradingView(
-                task_id="hard_technical_troubleshooting",
-                status="IN_PROGRESS",
-                reset_performed=True,
-                user_verified=True,
-                issue_identified=False,
-                resolution_provided=False,
-                attempts=5,
-                escalation=False,
-            ),
-        ]
+        # If specific task requested
+        if task_id == "easy_password_reset":
+            self.views = [
+                GradingView(
+                    task_id="easy_password_reset",
+                    status="CLOSED",
+                    reset_performed=True,
+                    user_verified=True,
+                    issue_identified=False,
+                    resolution_provided=False,
+                    attempts=1,
+                    escalation=False,
+                )
+            ]
 
-        return self.views  # initial state
+        elif task_id == "medium_billing_missing_info":
+            self.views = [
+                GradingView(
+                    task_id="medium_billing_missing_info",
+                    status="OPEN",
+                    reset_performed=False,
+                    user_verified=True,
+                    issue_identified=True,
+                    resolution_provided=False,
+                    attempts=2,
+                    escalation=False,
+                )
+            ]
+
+        elif task_id == "hard_technical_troubleshooting":
+            self.views = [
+                GradingView(
+                    task_id="hard_technical_troubleshooting",
+                    status="IN_PROGRESS",
+                    reset_performed=True,
+                    user_verified=True,
+                    issue_identified=False,
+                    resolution_provided=False,
+                    attempts=5,
+                    escalation=False,
+                )
+            ]
+
+        else:
+            # ✅ Default: return ALL 3 tasks
+            self.views = [
+                GradingView(
+                    task_id="easy_password_reset",
+                    status="CLOSED",
+                    reset_performed=True,
+                    user_verified=True,
+                    issue_identified=False,
+                    resolution_provided=False,
+                    attempts=1,
+                    escalation=False,
+                ),
+                GradingView(
+                    task_id="medium_billing_missing_info",
+                    status="OPEN",
+                    reset_performed=False,
+                    user_verified=True,
+                    issue_identified=True,
+                    resolution_provided=False,
+                    attempts=2,
+                    escalation=False,
+                ),
+                GradingView(
+                    task_id="hard_technical_troubleshooting",
+                    status="IN_PROGRESS",
+                    reset_performed=True,
+                    user_verified=True,
+                    issue_identified=False,
+                    resolution_provided=False,
+                    attempts=5,
+                    escalation=False,
+                ),
+            ]
+
+        return self.views
+
 
     # ======================================================
-    # ✅ OPTIONAL: STEP FUNCTION (for RL style env)
+    # ✅ STEP FUNCTION
     # ======================================================
     def step(self, action=None):
-        """
-        In simple case, we don't modify state
-        Just return current state + score
-        """
-
         score = grade_episode(self.views)
-
-        done = True  # episode ends immediately
-
+        done = True
         return self.views, score, done, {}
 
+
     # ======================================================
-    # ✅ HELPER: RUN FULL EPISODE
+    # ✅ HELPER
     # ======================================================
     def run_episode(self):
         self.reset()
