@@ -3,13 +3,23 @@ from .grader import grade_episode
 
 
 class SupportTicketEnvironment:
+    """
+    Environment for validator
+    Must implement reset() and step() in some frameworks
+    """
 
-    def run_episode(self):
+    def __init__(self):
+        self.views = []
+
+    # ======================================================
+    # ✅ REQUIRED: RESET FUNCTION
+    # ======================================================
+    def reset(self):
         """
-        MUST return final score using 3 tasks
+        Initializes the environment and returns initial state
         """
 
-        views = [
+        self.views = [
             GradingView(
                 task_id="easy_password_reset",
                 status="CLOSED",
@@ -42,4 +52,27 @@ class SupportTicketEnvironment:
             ),
         ]
 
-        return grade_episode(views)
+        return self.views  # initial state
+
+    # ======================================================
+    # ✅ OPTIONAL: STEP FUNCTION (for RL style env)
+    # ======================================================
+    def step(self, action=None):
+        """
+        In simple case, we don't modify state
+        Just return current state + score
+        """
+
+        score = grade_episode(self.views)
+
+        done = True  # episode ends immediately
+
+        return self.views, score, done, {}
+
+    # ======================================================
+    # ✅ HELPER: RUN FULL EPISODE
+    # ======================================================
+    def run_episode(self):
+        self.reset()
+        _, score, _, _ = self.step()
+        return score
