@@ -6,16 +6,13 @@ class SupportTicketEnvironment:
 
     def __init__(self):
         self.views = []
+        self.state = None   # ✅ REQUIRED
 
     # ======================================================
-    # ✅ FIXED RESET FUNCTION (accepts task_id)
+    # ✅ RESET (FIXED)
     # ======================================================
     def reset(self, task_id=None, **kwargs):
-        """
-        Validator may pass task_id → must accept it
-        """
 
-        # If specific task requested
         if task_id == "easy_password_reset":
             self.views = [
                 GradingView(
@@ -59,7 +56,7 @@ class SupportTicketEnvironment:
             ]
 
         else:
-            # ✅ Default: return ALL 3 tasks
+            # ✅ ALL 3 TASKS
             self.views = [
                 GradingView(
                     task_id="easy_password_reset",
@@ -93,17 +90,22 @@ class SupportTicketEnvironment:
                 ),
             ]
 
-        return self.views
+        # ✅ VERY IMPORTANT: set state
+        self.state = self.views
 
+        return self.state
 
     # ======================================================
-    # ✅ STEP FUNCTION
+    # ✅ STEP
     # ======================================================
     def step(self, action=None):
         score = grade_episode(self.views)
         done = True
-        return self.views, score, done, {}
 
+        # update state (optional but safe)
+        self.state = self.views
+
+        return self.state, score, done, {}
 
     # ======================================================
     # ✅ HELPER
