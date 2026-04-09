@@ -3,114 +3,73 @@ from .grader import grade_episode
 
 
 class SupportTicketEnvironment:
+    
+    TASK_VIEWS = {
+        "easy_password_reset": dict(
+            task_id="easy_password_reset",
+            status="CLOSED",
+            reset_performed=True,
+            user_verified=True,
+            issue_identified=False,
+            resolution_provided=False,
+            attempts=1,
+            escalation=False,
+        ),
+        "medium_billing_missing_info": dict(
+            task_id="medium_billing_missing_info",
+            status="OPEN",
+            reset_performed=False,
+            user_verified=True,
+            issue_identified=True,
+            resolution_provided=False,
+            attempts=2,
+            escalation=False,
+        ),
+        "hard_technical_troubleshooting": dict(
+            task_id="hard_technical_troubleshooting",
+            status="IN_PROGRESS",
+            reset_performed=True,
+            user_verified=True,
+            issue_identified=False,
+            resolution_provided=False,
+            attempts=5,
+            escalation=False,
+        ),
+    }
 
     def __init__(self):
         self.views = []
-        self.state = None   # ✅ REQUIRED
+        self.state = None
 
     # ======================================================
-    # ✅ RESET (FIXED)
+    # RESET
     # ======================================================
     def reset(self, task_id=None, **kwargs):
-
-        if task_id == "easy_password_reset":
-            self.views = [
-                GradingView(
-                    task_id="easy_password_reset",
-                    status="CLOSED",
-                    reset_performed=True,
-                    user_verified=True,
-                    issue_identified=False,
-                    resolution_provided=False,
-                    attempts=1,
-                    escalation=False,
-                )
-            ]
-
-        elif task_id == "medium_billing_missing_info":
-            self.views = [
-                GradingView(
-                    task_id="medium_billing_missing_info",
-                    status="OPEN",
-                    reset_performed=False,
-                    user_verified=True,
-                    issue_identified=True,
-                    resolution_provided=False,
-                    attempts=2,
-                    escalation=False,
-                )
-            ]
-
-        elif task_id == "hard_technical_troubleshooting":
-            self.views = [
-                GradingView(
-                    task_id="hard_technical_troubleshooting",
-                    status="IN_PROGRESS",
-                    reset_performed=True,
-                    user_verified=True,
-                    issue_identified=False,
-                    resolution_provided=False,
-                    attempts=5,
-                    escalation=False,
-                )
-            ]
-
+        if task_id and task_id in self.TASK_VIEWS:
+            self.views = [GradingView(**self.TASK_VIEWS[task_id])]
         else:
-            # ✅ ALL 3 TASKS
-            self.views = [
-                GradingView(
-                    task_id="easy_password_reset",
-                    status="CLOSED",
-                    reset_performed=True,
-                    user_verified=True,
-                    issue_identified=False,
-                    resolution_provided=False,
-                    attempts=1,
-                    escalation=False,
-                ),
-                GradingView(
-                    task_id="medium_billing_missing_info",
-                    status="OPEN",
-                    reset_performed=False,
-                    user_verified=True,
-                    issue_identified=True,
-                    resolution_provided=False,
-                    attempts=2,
-                    escalation=False,
-                ),
-                GradingView(
-                    task_id="hard_technical_troubleshooting",
-                    status="IN_PROGRESS",
-                    reset_performed=True,
-                    user_verified=True,
-                    issue_identified=False,
-                    resolution_provided=False,
-                    attempts=5,
-                    escalation=False,
-                ),
-            ]
+            # Load all 3 tasks by default
+            self.views = [GradingView(**cfg) for cfg in self.TASK_VIEWS.values()]
 
-        # ✅ VERY IMPORTANT: set state
         self.state = self.views
-
         return self.state
 
     # ======================================================
-    # ✅ STEP
+    # STEP
     # ======================================================
     def step(self, action=None):
+        if not self.state:
+            raise RuntimeError("Call reset() before step()")
+
         score = grade_episode(self.views)
         done = True
-
-        # update state (optional but safe)
         self.state = self.views
-
         return self.state, score, done, {}
 
     # ======================================================
-    # ✅ HELPER
+    # HELPER
     # ======================================================
-    def run_episode(self):
-        self.reset()
+    def run_episode(self, task_id=None):
+        self.reset(task_id=task_id)
         _, score, _, _ = self.step()
         return score
