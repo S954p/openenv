@@ -4,31 +4,40 @@ from threading import Lock
 from typing import Any, Dict, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from support_env.environment import SupportTicketEnvironment
 from support_env.tasks import TASKS
 
+
 # -------------------- FastAPI App --------------------
 app = FastAPI(title="Meta-Hackathon Support Ticket Environment")
+
 
 # -------------------- Global Storage --------------------
 _envs: Dict[str, SupportTicketEnvironment] = {}
 _lock = Lock()
 
 
+# -------------------- Global Exception Handler --------------------
+@app.middleware("http")
+async def catch_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+
 # -------------------- Models --------------------
 class ResetRequest(BaseModel):
-    task_id: Optional[str] = Field(
-        default=None,
-        description="easy_password_reset | medium_billing_missing_info | hard_technical_troubleshooting",
-    )
+    task_id: Optional[str] = Field(default=None)
     seed: Optional[int] = None
-    scenario: Optional[str] = Field(
-        default=None,
-        description="cooperative | angry_customer | silent_customer | escalation_hint",
-    )
+    scenario: Optional[str] = Field(default=None)
 
 
 class StepRequest(BaseModel):
@@ -45,7 +54,7 @@ class StateRequest(BaseModel):
 def root():
     return {
         "message": "Customer AI Command Center API is running",
-        "endpoints": ["/health", "/reset", "/step", "/state"],
+        "endpoints": ["/health", "/tasks", "/reset", "/step", "/state"],
     }
 
 
@@ -62,19 +71,18 @@ def tasks():
         difficulty = (
             "easy" if "easy" in task_id
             else "medium" if "medium" in task_id
-            else "hard" if "hard" in task_id
-            else "unknown"
+            else "hard"
         )
 
         payload.append(
             {
-                "task_id": spec.task_id,
-                "label": spec.task_id.replace("_", " ").title(),
+                "task_id": getattr(spec, "task_id", task_id),
+                "label": getattr(spec, "task_id", task_id).replace("_", " ").title(),
                 "difficulty": difficulty,
-                "sla_seconds": spec.sla_seconds,
-                "max_steps": spec.max_steps,
-                "optimal_steps": spec.optimal_steps,
-                "expected_issue_type": spec.expected_issue_type,
+                "sla_seconds": getattr(spec, "sla_seconds", None),
+                "max_steps": getattr(spec, "max_steps", None),
+                "optimal_steps": getattr(spec, "optimal_steps", None),
+                "expected_issue_type": getattr(spec, "expected_issue_type", None),
             }
         )
 
@@ -82,33 +90,40 @@ def tasks():
 
 
 # -------------------- Core Logic --------------------
-def _reset_episode(req: ResetRequest):
-    env = SupportTicketEnvironment()
+def _safe_model_dump(obj):
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return obj
 
+
+def _reset_episode(req: ResetRequest):
     try:
+        env = SupportTicketEnvironment()
+
         obs = env.reset(
             task_id=req.task_id,
             seed=req.seed,
             scenario=req.scenario,
         )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid task_id: {e}")
 
-    state = env.state()
+        state = env.state()
 
-    with _lock:
-        _envs[state.episode_id] = env
+        with _lock:
+            _envs[state.episode_id] = env
 
-    return {
-        "episode_id": state.episode_id,
-        "observation": obs.model_dump(),
-        "done": False,
-        "info": {
-            "task_id": state.task_id,
-            "seed_used": env.used_seed,
-            "scenario": state.customer.scenario,
-        },
-    }
+        return {
+            "episode_id": state.episode_id,
+            "observation": _safe_model_dump(obs),
+            "done": False,
+            "info": {
+                "task_id": state.task_id,
+                "seed_used": getattr(env, "used_seed", None),
+                "scenario": state.customer.scenario,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Reset failed: {str(e)}")
 
 
 # -------------------- API Endpoints --------------------
@@ -130,15 +145,19 @@ def step(req: StepRequest):
     if env is None:
         raise HTTPException(status_code=404, detail="Unknown episode_id")
 
-    obs, reward, done, info = env.step(req.action)
+    try:
+        obs, reward, done, info = env.step(req.action)
 
-    return {
-        "episode_id": req.episode_id,
-        "observation": obs.model_dump(),
-        "reward": reward.model_dump(),
-        "done": done,
-        "info": info,
-    }
+        return {
+            "episode_id": req.episode_id,
+            "observation": _safe_model_dump(obs),
+            "reward": _safe_model_dump(reward),
+            "done": done,
+            "info": info,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Step failed: {str(e)}")
 
 
 @app.post("/state")
@@ -149,7 +168,10 @@ def state(req: StateRequest):
     if env is None:
         raise HTTPException(status_code=404, detail="Unknown episode_id")
 
-    return {"state": env.state().model_dump()}
+    try:
+        return {"state": _safe_model_dump(env.state())}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/state")
@@ -160,12 +182,15 @@ def state_get(episode_id: str):
     if env is None:
         raise HTTPException(status_code=404, detail="Unknown episode_id")
 
-    return {"state": env.state().model_dump()}
+    try:
+        return {"state": _safe_model_dump(env.state())}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # -------------------- Entry Point --------------------
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    uvicorn.run(app, host="0.0.0.0", port=7860, reload=True)
 
 
 if __name__ == "__main__":
